@@ -1,27 +1,24 @@
-// SPDX-License-Identifier: GPL-3.0
+//SPDX-License-Identifier: GPL-3.0
 
 pragma solidity >=0.5.0 <0.9.0;
  
- // EIP-20: EC-20 Token Standard
+// EIP-20: EC-20 Token Standard
 
 interface ERC20Interface {
-   
-    //funzioni obbligtorie
     
     function totalSupply() external view returns (uint);
     function balanceOf(address tokenOwner) external view returns (uint balance);
     function transfer(address to, uint value) external returns (bool success);
 
-
     function allowance(address tokenOwner, address spender) external view returns (uint remaining);
     function approve(address spender, uint tokens) external returns (bool success);
     function transferFrom(address from, address to, uint tokens) external returns (bool success);
-
     
     event Transfer(address indexed from, address indexed to, uint tokens);
     event Approval(address indexed tokenOwner, address indexed spender, uint tokens);
 }
 
+//The Crypto Token Contract
 contract Cryptos is ERC20Interface {
     string public name = "Cryptos";
     string public symbol = "CRPT";
@@ -81,22 +78,21 @@ contract Cryptos is ERC20Interface {
     }
 }
 
-//lanciare ICO 
-
+// The ICO contract
 contract CryptosICO is Cryptos{
     address public admin;
     address payable public deposit;
-    uint tokenPrice = 0.001 ether;                   // 1ETH = 1000 CRPT, 1CRPT = 0.001 ETH
+    uint tokenPrice = 0.001 ether;                        // 1ETH = 1000 CRPT, 1CRPT = 0.001 ETH
     uint public hardCap = 300 ether;
     uint public raisedAmount;
-    uint public saleStart = block.timestamp;         //ICO inizia adesso
-    uint public saleEnd = block.timestamp + 604800;  // ico finisce in una settimana
+    uint public saleStart = block.timestamp;              //start ICO
+    uint public saleEnd = block.timestamp + 604800;       // ICO finisches in one week
    
-    uint public tokenTradeStart = saleEnd + 604800;  // trasferibili una settimana dopo la fine
+    uint public tokenTradeStart = saleEnd + 604800;       // transferable in a week after saleEnd
     uint public maxInvestment = 5 ether;
     uint public minInvestment = 0.1 ether;
 
-    enum State {beforeStart, running, afterEnd, halted}
+    enum State {beforeStart, running, afterEnd, halted}   //ICO states
     State public icoState;
 
     constructor(address payable _deposit){
@@ -110,7 +106,8 @@ contract CryptosICO is Cryptos{
         _;
     }
 
-    function halt() public onlyAdmin{              //emergency stop
+    // emergency stop
+    function halt() public onlyAdmin{       
         icoState = State.halted;
     }
 
@@ -136,6 +133,7 @@ contract CryptosICO is Cryptos{
 
     event Invest(address investor, uint value, uint tokens);
 
+    // function called when sending eth to the contract
     function invest() payable public returns(bool){
         icoState = getCurrentState();
         require(icoState == State.running);
@@ -146,31 +144,43 @@ contract CryptosICO is Cryptos{
 
         uint tokens = msg.value / tokenPrice;
 
+        // adding tokens ti the investor's balance from the founder's balance
         balances[msg.sender] += tokens;
         balances[founder] -= tokens;
+        
+        // transfering the value sent to the ICO to the deposit address 
         deposit.transfer(msg.value);
+        
         emit Invest(msg.sender, msg.value, tokens);
 
         return true;
     }
 
+    // this function is called automatically when someone sends ETH to the contract's address
     receive() payable external{
         invest();
     }
 
+    //the token will be transferable only after token trade start
     function transfer(address to, uint tokens) public override returns(bool success){
         require(block.timestamp > tokenTradeStart);
+
+        //calling the transfer function of the base contract
         Cryptos.transfer(to, tokens);
         return true;
     }
 
+    // the token will be transferable only after token trade start
     function transferFrom(address from, address to, uint tokens) public override returns (bool success){
         require(block.timestamp > tokenTradeStart);
+
+        //calling the transfer function of the base contract
         Cryptos.transferFrom(from, to, tokens);
         return true;
     }
-
-    function burn() public returns(bool){      //bruciare token non venduti
+    
+    // burning unsold tokens
+    function burn() public returns(bool){     
         icoState = getCurrentState();
         require(icoState == State.afterEnd);
         balances[founder] = 0;
